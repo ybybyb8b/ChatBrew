@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ChatBrew V2.4</title>
+    <style>
+        :root {
+            /* ☕️ 核心色板 */
+            --primary: #9d8189;
+            --bg-body: #f2f4f6; 
+            --bg-sidebar: #fff;
+            --text-main: #4a4a4a; 
+            --text-sub: #a0a0a0;
+            
+            --user-bg: #fffcf9; 
+            --user-tag-bg: #e6dace; 
+            --user-tag-text: #795548;
+            
+            --ai-bg: #ffffff;
+            --ai-tag-bg: #eceff1;
+            --ai-tag-text: #546e7a;
+            
+            --radius: 12px;
+        }
+
+        body { font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background: var(--bg-body); margin: 0; color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Header */
+        header { 
+            background: #fff; height: 60px; padding: 0 24px; 
+            display: flex; align-items: center; justify-content: space-between; 
+            z-index: 100; flex-shrink: 0; box-shadow: 0 1px 0px rgba(0,0,0,0.03); 
+        }
+
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .logo { font-size: 16px; font-weight: 700; color: var(--primary); letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+        .tag { background: #f0f0f0; color: #888; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+        .menu-btn { display: none; font-size: 20px; cursor: pointer; background: none; border: none; color: #666; padding: 4px; }
+
+        .view-switcher { background: #f0f2f5; padding: 3px; border-radius: 8px; display: flex; gap: 2px; }
+        .view-btn { 
+            padding: 6px 16px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; 
+            transition: all 0.2s; background: transparent; color: var(--text-sub); display: flex; align-items: center; gap: 6px;
+        }
+        .view-btn.active { background: #fff; color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
+        .view-text { display: inline; }
+
+        .header-actions { display: flex; gap: 10px; }
+        .btn { padding: 8px 18px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: 0.2s; }
+        .btn-primary { background: #fff; color: var(--text-main); border: 1px solid #e0e0e0; }
+        .btn-primary:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-accent { background: var(--primary); color: white; }
+        .btn-accent:hover { opacity: 0.9; }
+
+        /* Layout */
+        .layout { display: flex; flex: 1; overflow: hidden; position: relative; }
+        .sidebar { width: 260px; background: var(--bg-sidebar); border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; flex-shrink: 0; z-index: 90; transition: transform 0.3s ease; }
+        .sidebar-content { padding: 24px; overflow-y: auto; flex: 1; }
+        
+        .mobile-actions-group { display: none; margin-bottom: 24px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        .mobile-btn { width: 100%; padding: 12px; margin-bottom: 8px; border-radius: 8px; font-weight: 600; border: 1px solid #eee; background: #fff; cursor: pointer; text-align: center; }
+        
+        .panel-title { font-size: 11px; font-weight: 700; color: #ccc; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .styled-input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #eee; font-size: 13px; outline: none; background: #f9f9f9; box-sizing: border-box; color: #555; font-family: inherit; }
+        .styled-input:focus { background: #fff; border-color: var(--primary); }
+        
+        .toggle-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; font-size: 13px; color: #555; }
+        .switch { position: relative; display: inline-block; width: 32px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e0e0e0; transition: .3s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        input:checked + .slider { background-color: var(--primary); } input:checked + .slider:before { transform: translateX(14px); }
+
+        .main-stage { flex: 1; overflow-y: auto; padding: 30px; position: relative; }
+        .read-wrapper { max-width: 800px; margin: 0 auto; }
+        
+        .conv-block { margin-bottom: 40px; }
+        .block-header { padding: 0 10px 12px 10px; display: flex; align-items: center; cursor: pointer; margin-bottom: 10px; }
+        .block-header:hover { opacity: 0.7; }
+        .msg-list { display: flex; flex-direction: column; gap: 12px; }
+        
+        .msg-row-container { display: flex; flex-direction: column; gap: 0; }
+        .msg-row { 
+            display: flex; padding: 16px 20px; align-items: flex-start; gap: 16px; 
+            border-radius: var(--radius); transition: all 0.2s; position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03); z-index: 1;
+        }
+        .msg-row.is-user { background-color: var(--user-bg); }
+        .is-user .msg-role-tag { background: var(--user-tag-bg); color: var(--user-tag-text); }
+        .msg-row.is-ai { background-color: var(--ai-bg); }
+        .is-ai .msg-role-tag { background: var(--ai-tag-bg); color: var(--ai-tag-text); }
+        
+        .mode-filter .msg-row.checked { opacity: 1; }
+        .mode-filter .msg-row.unchecked { opacity: 0.5; filter: grayscale(0.8); box-shadow: none; background: transparent; border: 1px dashed #ddd; }
+        .msg-role-tag { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; display: inline-block; margin-bottom: 6px; user-select: none; }
+        
+        .mode-edit .msg-role-tag { cursor: pointer; border: 1px solid rgba(0,0,0,0.05); }
+        .mode-edit .msg-role-tag:hover { filter: brightness(0.95); }
+
+        .msg-content { font-size: 14px; line-height: 1.7; color: #444; white-space: pre-wrap; word-break: break-all; }
+        .msg-think { font-size: 11px; color: #aaa; margin-top: 8px; padding: 8px 12px; background: rgba(0,0,0,0.02); border-radius: 6px; font-family: monospace; }
+        
+        .msg-check input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; margin-top: 4px; opacity: 0.6; }
+        .msg-check input:checked { opacity: 1; }
+        
+        .row-actions { display: flex; flex-direction: column; gap: 6px; opacity: 0.4; transition: 0.2s; }
+        .msg-row:hover .row-actions { opacity: 1; }
+        .action-btn { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: transparent; border: none; font-size: 13px; cursor: pointer; transition: 0.2s; color: #bbb; }
+        .action-btn.del:hover { color: #fff; background: #e57373; }
+        .action-btn.split:hover { color: #fff; background: var(--primary); }
+        .action-btn.split.active { color: #fff; background: var(--primary); opacity: 1; }
+
+        .msg-separator { 
+            height: 0; margin: 0; border-top: 2px dashed #ddd; 
+            position: relative; text-align: center; margin-top: 10px; margin-bottom: 10px;
+            display: none; 
+        }
+        .msg-separator.show { display: block; }
+        .msg-separator::after { 
+            content: "✂️ 分段点"; position: relative; top: -10px; background: var(--bg-body); 
+            padding: 0 10px; color: #bbb; font-size: 10px; font-weight: 700;
+        }
+
+        .mode-edit .msg-check { display: none; }
+        .mode-edit .msg-content { padding: 4px 8px; margin: -4px -8px; border-radius: 6px; border: 1px solid transparent; min-height: 20px; }
+        .mode-edit .msg-content:focus { background: #fff; border-color: var(--primary); outline: none; }
+        .mode-edit .action-btn.split { display: none; } 
+        
+        .conv-tools { margin-left: 20px; font-size: 11px; color: var(--text-sub); display: inline-flex; gap: 12px; background: #f0f2f5; padding: 4px 10px; border-radius: 12px; }
+        .tool-btn { cursor: pointer; font-weight: 500; } .tool-btn:hover { color: var(--primary); }
+
+        .chat-card { background: #fff; border-radius: 20px; margin-bottom: 30px; box-shadow: 0 8px 30px rgba(0,0,0,0.04); overflow: hidden; }
+        .chat-header { padding: 16px 24px; background: #fff; border-bottom: 1px solid #f7f7f7; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .chat-body { padding: 24px; background: #fff; }
+        .chat-row { display: flex; margin-bottom: 24px; align-items: flex-end; width: 100%; justify-content: flex-start; }
+        .chat-row.user { justify-content: flex-end; }
+        .bubble { max-width: 85%; padding: 12px 18px; border-radius: 18px; font-size: 15px; line-height: 1.6; }
+        .user .bubble { background: #eadbdc; color: #46373b; border-bottom-right-radius: 2px; }
+        .ai .bubble { background: #f4f6f8; color: #333; border-bottom-left-radius: 2px; }
+
+        .empty-state { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; text-align: center; }
+        .upload-card { background: #fff; padding: 40px 60px; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.03); transition: 0.2s; }
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: rgba(0,0,0,0.8); color: #fff; padding: 8px 20px; border-radius: 50px; font-size: 13px; transition: 0.3s; z-index: 999; backdrop-filter: blur(4px); }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .sidebar-overlay { display: none; }
+
+        @media (max-width: 768px) {
+            header { padding: 0 16px; height: 50px; }
+            .menu-btn { display: block; }
+            .logo .tag { display: none; }
+            .header-actions { display: none; }
+            .view-btn { padding: 6px 10px; font-size: 14px; }
+            .view-text { display: none; }
+            .view-btn::after { content: attr(data-icon); }
+            .sidebar { position: fixed; height: 100%; box-shadow: 10px 0 30px rgba(0,0,0,0.1); transform: translateX(-100%); width: 80%; max-width: 300px; }
+            .sidebar.active { transform: translateX(0); }
+            .sidebar-overlay.active { display: block; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.2); z-index: 80; backdrop-filter: blur(2px); }
+            .mobile-actions-group { display: block; }
+            .main-stage { padding: 15px; }
+            .bubble { max-width: 95%; }
+            .msg-row { padding: 12px 14px; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-left">
+        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        <div class="logo">☕️ ChatBrew V2.4 <span class="tag">公测版</span></div>
+    </div>
+    
+    <div class="view-switcher">
+        <button class="view-btn active" onclick="switchMode('filter')" id="btnFilter" data-icon="🛠️"><span class="view-text">筛选</span></button>
+        <button class="view-btn" onclick="switchMode('edit')" id="btnEdit" data-icon="✏️"><span class="view-text">精修</span></button>
+        <button class="view-btn" onclick="switchMode('read')" id="btnRead" data-icon="🌸"><span class="view-text">阅览</span></button>
+    </div>
+
+    <div class="header-actions">
+        <span style="font-size:10px; color:var(--text-sub); display:none; line-height:30px;" id="fileStatus"></span>
+        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">导入</button>
+        <button class="btn btn-primary" onclick="exportMarkdown()">MD</button>
+        <button class="btn btn-accent" onclick="exportTxt()">TXT</button>
+    </div>
+    <input type="file" id="fileInput" accept=".json,.txt" style="display:none">
+</header>
+
+<div class="layout">
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-content">
+            <div class="mobile-actions-group">
+                <div style="font-size:12px; color:#aaa; margin-bottom:10px; text-align:center;">文件操作</div>
+                <button class="mobile-btn" onclick="document.getElementById('fileInput').click(); toggleSidebar()">📂 导入文件</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="mobile-btn" onclick="exportMarkdown(); toggleSidebar()">⬇️ 导出 MD</button>
+                    <button class="mobile-btn" onclick="exportTxt(); toggleSidebar()">⬇️ 导出 TXT</button>
+                </div>
+            </div>
+
+            <div class="panel-group">
+                <div class="panel-title">📅 增量过滤</div>
+                <div class="toggle-item">
+                    <span>只看新消息</span>
+                    <label class="switch"><input type="checkbox" id="optTimeFilter" onchange="render()"><span class="slider"></span></label>
+                </div>
+                <div id="timeFilterControl" style="display:none; margin-bottom:16px; background:#f9f9f9; padding:10px; border-radius:8px; border:1px solid #eee;">
+                    <div style="font-size:11px; color:#aaa; margin-bottom:6px;">过滤此时间点之前的：</div>
+                    <input type="datetime-local" id="filterDate" class="styled-input" style="font-size:12px;" onchange="render()">
+                    <div style="font-size:10px; color:#bbb; margin-top:6px; text-align:right;" id="lastExportHint">上次导出：无记录</div>
+                </div>
+            </div>
+
+            <div class="panel-group">
+                <div class="panel-title">🔖 角色定制</div>
+                <div style="font-size:10px; color:#aaa; margin-bottom:6px;">导入txt前请先在此处填写对应昵称</div>
+                <div class="styled-input" style="margin-bottom:8px;"><input type="text" id="userNick" value="【User】" style="border:none; background:transparent; width:100%; outline:none;" placeholder="User昵称 (TXT中对应的名字)"></div>
+                <div class="styled-input"><input type="text" id="aiNick" value="【AI】" style="border:none; background:transparent; width:100%; outline:none;" placeholder="AI昵称 (TXT中对应的名字)"></div>
+            </div>
+            
+            <div class="panel-group">
+                <div class="panel-title" style="margin-top:20px;">✨ 导出选项</div>
+                <div class="toggle-item"><span>保留时间戳</span><label class="switch"><input type="checkbox" id="optTime" checked><span class="slider"></span></label></div>
+                <div class="toggle-item"><span>去除 &lt;think&gt;</span><label class="switch"><input type="checkbox" id="optRemoveThink" checked><span class="slider"></span></label></div>
+                <div class="toggle-item"><span>防碎(压扁换行)</span><label class="switch"><input type="checkbox" id="optFlatten"><span class="slider"></span></label></div>
+            </div>
+             <div class="panel-group">
+                <div class="panel-title" style="margin-top:20px;">🔧 列表设置</div>
+                <div class="toggle-item"><span>最新在前</span><label class="switch"><input type="checkbox" id="optSortDesc" checked onchange="toggleSort()"><span class="slider"></span></label></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="main-stage" id="mainStage">
+        <div class="empty-state">
+            <div class="upload-card" onclick="document.getElementById('fileInput').click()">
+                <div style="font-size:32px; color:#e0e0e0; margin-bottom:12px;">📂</div>
+                <div style="font-weight:600; font-size:14px; color:#666;">导入 JSON 或 TXT</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="toast" id="toastMsg">操作成功</div>
+
+<script>
+    let conversations = [];
+    let currentMode = 'filter'; 
+    const STORAGE_KEY = 'kelivo_last_export'; 
+
+    window.onload = () => { loadLastExportTime(); };
+
+    const mainStage = document.getElementById('mainStage');
+    const fileInput = document.getElementById('fileInput');
+
+    fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+    document.body.addEventListener('dragover', e => e.preventDefault());
+    document.body.addEventListener('drop', e => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); });
+
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('active');
+        document.querySelector('.sidebar-overlay').classList.toggle('active');
+    }
+
+    function loadLastExportTime() {
+        const lastTs = localStorage.getItem(STORAGE_KEY);
+        const filterInput = document.getElementById('filterDate');
+        const hint = document.getElementById('lastExportHint');
+        const controlDiv = document.getElementById('timeFilterControl');
+        const toggle = document.getElementById('optTimeFilter');
+
+        toggle.addEventListener('change', (e) => {
+            controlDiv.style.display = e.target.checked ? 'block' : 'none';
+        });
+
+        if (lastTs) {
+            const date = new Date(parseInt(lastTs));
+            const isoStr = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            filterInput.value = isoStr;
+            hint.innerText = `上次导出：${date.toLocaleString()}`;
+        } else {
+            const now = new Date();
+            const isoStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            filterInput.value = isoStr;
+        }
+    }
+
+    function saveExportTime() {
+        const now = new Date();
+        localStorage.setItem(STORAGE_KEY, now.getTime());
+        loadLastExportTime(); 
+    }
+
+    function handleFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                if (file.name.toLowerCase().endsWith('.txt')) {
+                    parseTxtData(e.target.result);
+                } else {
+                    const data = JSON.parse(e.target.result);
+                    parseData(data);
+                }
+                document.getElementById('fileStatus').style.display = 'block';
+                document.getElementById('fileStatus').innerText = "已加载";
+                render();
+            } catch (err) { 
+                console.error(err);
+                alert("格式解析失败！"); 
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function parseTxtData(text) {
+        conversations = [];
+        const currentUserNick = document.getElementById('userNick').value.trim();
+        const currentAiNick = document.getElementById('aiNick').value.trim();
+        
+        const blocks = text.split('📦 来源：').filter(b => b.trim().length > 0);
+        
+        blocks.forEach((block, idx) => {
+            const lines = block.split('\n');
+            const title = lines[0].trim();
+            const dateLine = lines.find(l => l.startsWith('📅 日期：'));
+            const dateStr = dateLine ? dateLine.replace('📅 日期：', '').trim() : "未知日期";
+            
+            const parts = block.split('====================');
+            if(parts.length < 2) return;
+            let contentBody = parts[1].trim();
+
+            // === V2.4 关键修复：保护 <think> 内部的双换行 ===
+            // 避免因为思考过程中的段落而被错误切割
+            contentBody = contentBody.replace(/<think>([\s\S]*?)<\/think>/gi, (match) => {
+                // 将内部的双换行替换为特殊占位符
+                return match.replace(/\n{2,}/g, '___THINK_BREAK___');
+            });
+            // ===========================================
+            
+            const chunks = contentBody.split(/\n{2,}/);
+            let msgs = [];
+            
+            chunks.forEach(chunk => {
+                chunk = chunk.trim();
+                if(!chunk) return;
+
+                // === V2.4 修复：还原 <think> 内部的换行 ===
+                chunk = chunk.replace(/___THINK_BREAK___/g, '\n\n');
+                
+                const firstNewLine = chunk.indexOf('\n');
+                if (firstNewLine === -1) return;
+                
+                const headerLine = chunk.substring(0, firstNewLine).trim();
+                const contentText = chunk.substring(firstNewLine + 1).trim();
+                
+                const timeMatch = headerLine.match(/\[(\d{4}-\d{2}-\d{2}.+?)\]/);
+                let role = 'user'; 
+                let timeStr = '';
+                let timestamp = 0;
+                let name = headerLine;
+                
+                if (timeMatch) {
+                    timeStr = timeMatch[1];
+                    timestamp = new Date(timeStr).getTime();
+                    name = headerLine.replace(timeMatch[0], '').trim();
+                }
+                
+                const lowerName = name.toLowerCase();
+                const lowerUserNick = currentUserNick.toLowerCase();
+                const lowerAiNick = currentAiNick.toLowerCase();
+
+                if (lowerAiNick && lowerName.includes(lowerAiNick)) role = 'assistant';
+                else if (lowerUserNick && lowerName.includes(lowerUserNick)) role = 'user';
+                else if (lowerName.includes('ai') || lowerName.includes('assistant') || lowerName.includes('模型') || lowerName.includes('deepseek')) role = 'assistant';
+                else if (lowerName.includes('user') || lowerName.includes('用户') || lowerName.includes('me')) role = 'user';
+
+                let thinkContent = null;
+                let finalContent = contentText;
+                const thinkMatch = contentText.match(/<think>([\s\S]*?)<\/think>/i);
+                if (thinkMatch) {
+                     thinkContent = thinkMatch[1].trim();
+                     finalContent = contentText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                }
+
+                msgs.push({
+                    id: Math.random().toString(36),
+                    role: role,
+                    content: finalContent,
+                    think: thinkContent,
+                    timeStr: timeStr,
+                    timestamp: timestamp || Date.now(),
+                    checked: true,
+                    hasBreak: false 
+                });
+            });
+            
+            if (msgs.length > 0) {
+                conversations.push({
+                    id: idx,
+                    title: title,
+                    dateStr: dateStr,
+                    timestamp: msgs[0].timestamp,
+                    msgs: msgs,
+                    expanded: true
+                });
+            }
+        });
+        toggleSort(false);
+    }
+
+    function parseData(data) {
+        conversations = [];
+        let msgsMap = {};
+        if (Array.isArray(data.messages)) data.messages.forEach(m => msgsMap[m.id] = m);
+        else if (data.mapping) Object.values(data.mapping).forEach(m => { if(m.message) msgsMap[m.message.id] = m.message; });
+
+        const rawList = data.conversations || [];
+        rawList.forEach((conv, cIdx) => {
+            const time = detectTime(conv);
+            let msgs = [];
+            (conv.messageIds || []).forEach(mid => {
+                const m = msgsMap[mid];
+                if (!m) return;
+                let rawTxt = typeof m.content === 'string' ? m.content : (m.content.parts ? m.content.parts.join('\n') : '');
+                
+                let thinkContent = null;
+                if (m.reasoningSegmentsJson) {
+                    try {
+                        let segments = typeof m.reasoningSegmentsJson === 'string' ? JSON.parse(m.reasoningSegmentsJson) : m.reasoningSegmentsJson;
+                        if (Array.isArray(segments)) thinkContent = segments.map(s => s.text || s.content).join('\n');
+                        else if (typeof segments === 'object') thinkContent = segments.text || segments.content;
+                    } catch (e) {}
+                }
+                if (!thinkContent && (m.reasoning_content || m.reasoning)) thinkContent = m.reasoning_content || m.reasoning;
+                if (!thinkContent && rawTxt) {
+                    const match = rawTxt.match(/<think>([\s\S]*?)<\/think>/i);
+                    if (match) { thinkContent = match[1].trim(); rawTxt = rawTxt.replace(/<think>[\s\S]*?<\/think>/gi, '').trim(); }
+                }
+                if (!rawTxt && !thinkContent) return;
+                if (rawTxt && (rawTxt.includes('HttpException') || rawTxt.includes('{"error":'))) return;
+
+                const role = (m.role || (m.author && m.author.role));
+                if (role !== 'user' && role !== 'assistant') return;
+                
+                const mTime = detectTime(m);
+                msgs.push({ 
+                    id: mid, role: role, content: rawTxt || "(无正文)", think: thinkContent, 
+                    timeStr: mTime ? formatTime(mTime) : "", timestamp: mTime ? mTime.getTime() : 0, 
+                    checked: true, hasBreak: false 
+                });
+            });
+            if (msgs.length > 0) {
+                conversations.push({ id: cIdx, title: conv.title || `对话 ${cIdx+1}`, dateStr: time ? time.toLocaleDateString() : "未知日期", timestamp: time ? time.getTime() : 0, msgs: msgs, expanded: true });
+            }
+        });
+        toggleSort(false);
+    }
+
+    function switchMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+        render();
+    }
+
+    function toggleSort(shouldRender = true) {
+        const isDesc = document.getElementById('optSortDesc').checked;
+        conversations.sort((a, b) => isDesc ? (b.timestamp - a.timestamp) : (a.timestamp - b.timestamp));
+        if(shouldRender) render();
+    }
+
+    function getFilterTimestamp() {
+        const enabled = document.getElementById('optTimeFilter').checked;
+        if (!enabled) return 0;
+        const val = document.getElementById('filterDate').value;
+        return val ? new Date(val).getTime() : 0;
+    }
+
+    function render() {
+        mainStage.innerHTML = '';
+        if (conversations.length === 0) return;
+        mainStage.className = `main-stage mode-${currentMode}`;
+        if (currentMode === 'read') renderReadView();
+        else renderListView(); 
+    }
+
+    function renderListView() {
+        const threshold = getFilterTimestamp();
+
+        conversations.forEach((conv, cIdx) => {
+            const visibleMsgs = conv.msgs.filter(m => m.timestamp >= threshold);
+            if (visibleMsgs.length === 0) return; 
+
+            const block = document.createElement('div'); block.className = 'conv-block';
+            
+            const header = document.createElement('div'); header.className = 'block-header';
+            header.innerHTML = `
+                <span class="drag-handle" style="display:${currentMode==='filter'?'inline':'none'}">::</span> 
+                <span style="font-weight:700; font-size:14px; color:var(--text-main); margin-right:8px;">${conv.title}</span> 
+                <span style="font-size:11px; color:#bbb;">${conv.dateStr}</span>
+                ${currentMode === 'filter' && conv.expanded ? 
+                `<div class="conv-tools"><span class="tool-btn" onclick="batchCheck(${cIdx}, true)">全选</span><span class="tool-btn" onclick="batchCheck(${cIdx}, false)">全不</span><span class="tool-btn" onclick="batchCheck(${cIdx}, 'invert')">反选</span></div>` : ''}
+            `;
+            header.onclick = (e) => { if(!e.target.classList.contains('tool-btn')) { conv.expanded = !conv.expanded; render(); }}; 
+            block.appendChild(header);
+
+            if (conv.expanded) {
+                const listContainer = document.createElement('div');
+                listContainer.className = 'msg-list';
+
+                conv.msgs.forEach((msg, mIdx) => {
+                    if (msg.timestamp < threshold) return; 
+
+                    const isUser = msg.role === 'user';
+                    const rowContainer = document.createElement('div');
+                    rowContainer.className = 'msg-row-container';
+
+                    const row = document.createElement('div'); 
+                    row.className = `msg-row ${msg.checked ? 'checked' : 'unchecked'} ${isUser ? 'is-user' : 'is-ai'}`;
+                    
+                    row.innerHTML = `
+                        <div class="msg-check"><input type="checkbox" ${msg.checked?'checked':''} onclick="event.stopPropagation()"></div>
+                        <div style="flex:1; min-width:0;">
+                            <div>
+                                <span class="msg-role-tag" onclick="toggleRole(${cIdx}, ${mIdx}, event)">${isUser ? 'User' : 'AI'}</span>
+                                <span style="font-size:11px; color:#ccc; margin-left:4px;">${msg.timeStr.split(' ')[1]||''}</span>
+                            </div>
+                            <div class="msg-content" contenteditable="${currentMode==='edit'}" onblur="updateText(${cIdx}, ${mIdx}, this)">${escapeHtml(msg.content)}</div>
+                            ${msg.think ? `<div class="msg-think">${escapeHtml(msg.think).substring(0, 80)}...</div>` : ''}
+                        </div>
+                        <div class="row-actions">
+                            <button class="action-btn del" title="删除" onclick="deleteMsg(${cIdx}, ${mIdx}); event.stopPropagation();">×</button>
+                            <button class="action-btn split ${msg.hasBreak?'active':''}" title="在此处分段" onclick="toggleBreak(${cIdx}, ${mIdx}); event.stopPropagation();">✂️</button>
+                        </div>
+                    `;
+                    
+                    row.onclick = (e) => {
+                        if (currentMode === 'filter') {
+                            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.classList.contains('msg-role-tag')) return;
+                            conversations[cIdx].msgs[mIdx].checked = !conversations[cIdx].msgs[mIdx].checked;
+                            render();
+                        }
+                    };
+                    
+                    const separator = document.createElement('div');
+                    separator.className = `msg-separator ${msg.hasBreak ? 'show' : ''}`;
+
+                    rowContainer.appendChild(row);
+                    rowContainer.appendChild(separator);
+                    listContainer.appendChild(rowContainer);
+                });
+                block.appendChild(listContainer);
+            }
+            mainStage.appendChild(block);
+        });
+    }
+
+    function renderReadView() {
+        const container = document.createElement('div'); container.className = 'read-wrapper';
+        const threshold = getFilterTimestamp();
+
+        conversations.forEach((conv, cIdx) => {
+            const validMsgs = conv.msgs.filter(m => m.checked && m.timestamp >= threshold);
+            if(validMsgs.length === 0) return;
+
+            const card = document.createElement('div'); card.className = `chat-card`;
+            const header = document.createElement('div'); header.className = 'chat-header';
+            header.onclick = () => { conv.expanded = !conv.expanded; render(); };
+            header.innerHTML = `<div><span style="font-weight:700; color:var(--primary); font-size:14px;">${conv.title}</span><span style="font-size:11px; color:#bbb; margin-left:8px;">${conv.dateStr}</span></div>`;
+            const body = document.createElement('div'); body.className = 'chat-body';
+            
+            if(conv.expanded) {
+                validMsgs.forEach((msg, mIdx) => {
+                    const row = document.createElement('div'); row.className = `chat-row ${msg.role === 'user' ? 'user' : 'ai'}`;
+                    const bubble = document.createElement('div'); bubble.className = 'bubble';
+                    
+                    let html = '';
+                    if (msg.think && msg.role !== 'user') {
+                        html += `<div style="font-size:12px;color:#aaa;margin-bottom:6px;border-left:2px solid #eee;padding-left:8px;">💭 思考已折叠</div>`;
+                    }
+                    html += `<div>${escapeHtml(msg.content)}</div>`;
+                    bubble.innerHTML = html;
+                    row.appendChild(bubble); body.appendChild(row);
+                    
+                    if (msg.hasBreak) {
+                        const breakLine = document.createElement('div');
+                        breakLine.style.cssText = "width:100%; border-top:1px dashed #eee; margin:20px 0; text-align:center; color:#ddd; font-size:10px;";
+                        breakLine.innerText = "--- 分段 ---";
+                        body.appendChild(breakLine);
+                    }
+                });
+            }
+            card.appendChild(header); card.appendChild(body); container.appendChild(card);
+        });
+        mainStage.appendChild(container);
+    }
+
+    function updateText(cIdx, mIdx, el) { conversations[cIdx].msgs[mIdx].content = el.innerText; }
+    
+    function toggleBreak(cIdx, mIdx) {
+        conversations[cIdx].msgs[mIdx].hasBreak = !conversations[cIdx].msgs[mIdx].hasBreak;
+        render(); 
+    }
+    
+    function toggleRole(cIdx, mIdx, e) {
+        if (currentMode === 'edit') {
+            e.stopPropagation();
+            const msg = conversations[cIdx].msgs[mIdx];
+            msg.role = (msg.role === 'user') ? 'assistant' : 'user';
+            render();
+            showToast(`已切换为: ${msg.role === 'user' ? 'User' : 'AI'}`);
+        }
+    }
+
+    function batchCheck(cIdx, mode) {
+        conversations[cIdx].msgs.forEach(m => {
+            if (mode === true) m.checked = true;
+            else if (mode === false) m.checked = false;
+            else if (mode === 'invert') m.checked = !m.checked;
+        });
+        render();
+    }
+
+    function deleteMsg(cIdx, mIdx) { 
+        if(confirm("删除这条？")) { 
+            conversations[cIdx].msgs.splice(mIdx, 1); 
+            render(); 
+        } 
+    }
+
+    function collectExportData() {
+        const userNick = document.getElementById('userNick').value; 
+        const aiNick = document.getElementById('aiNick').value;
+        const keepTime = document.getElementById('optTime').checked; 
+        const removeThink = document.getElementById('optRemoveThink').checked; 
+        const threshold = getFilterTimestamp();
+        
+        let blocks = [];
+
+        conversations.forEach(conv => {
+            const validMsgs = conv.msgs.filter(m => m.checked && m.timestamp >= threshold);
+            if(validMsgs.length === 0) return;
+            
+            blocks.push({
+                title: conv.title,
+                date: conv.dateStr,
+                msgs: validMsgs.map(m => ({
+                    role: m.role,
+                    name: m.role === 'user' ? userNick : aiNick,
+                    time: keepTime ? `[${m.timeStr}] ` : "",
+                    rawTime: keepTime ? ` *(${m.timeStr})*` : "",
+                    content: m.content,
+                    think: !removeThink && m.think ? m.think : null,
+                    hasBreak: m.hasBreak
+                }))
+            });
+        });
+        return blocks;
+    }
+
+    function exportTxt() {
+        const data = collectExportData();
+        const flatten = document.getElementById('optFlatten').checked; 
+        if (data.length === 0) return alert("没选中任何消息");
+        
+        let output = "";
+        data.forEach(b => {
+            output += `📦 来源：${b.title}\n📅 日期：${b.date}\n====================\n\n`;
+            b.msgs.forEach(m => {
+                let txt = m.content;
+                if (m.think) txt = `<think>${m.think}</think>\n${txt}`;
+                
+                if (flatten) {
+                    txt = txt.replace(/\n\n/g, '___DOUBLE_BREAK___').replace(/\n/g, '  ').replace(/___DOUBLE_BREAK___/g, '\n\n');
+                }
+                output += `${m.name} ${m.time}\n${txt}\n`;
+                
+                if (m.hasBreak) output += "\n\n\n\n"; 
+                else output += "\n\n";
+            });
+            output += "\n\n";
+        });
+        
+        downloadFile(output, 'txt');
+        saveExportTime(); 
+    }
+
+    function exportMarkdown() {
+        const data = collectExportData();
+        if (data.length === 0) return alert("没选中任何消息");
+        
+        let output = "";
+        data.forEach(b => {
+            output += `# ${b.title}\n*Date: ${b.date}*\n\n---\n\n`;
+            b.msgs.forEach(m => {
+                output += `**${m.name}**${m.rawTime}:\n\n`;
+                if (m.think) output += `> 💭 **Think:**\n> ${m.think.replace(/\n/g, '\n> ')}\n\n`;
+                output += `${m.content}\n`;
+                
+                if (m.hasBreak) output += "\n\n&nbsp;\n\n"; 
+                else output += "\n\n";
+            });
+            output += "---\n\n";
+        });
+        
+        downloadFile(output, 'md');
+        saveExportTime(); 
+    }
+
+    function downloadFile(content, ext) {
+        const blob = new Blob([content], {type: 'text/plain'}); 
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download = `Kelivo聊天记录精修_${new Date().toISOString().split('T')[0]}.${ext}`; 
+        a.click(); 
+        showToast(`已导出 .${ext}`);
+    }
+
+    function showToast(msg) { const t = document.getElementById('toastMsg'); t.innerText = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+    function detectTime(obj) { const val = obj.createdAt || obj.created_at || obj.create_time || obj.time || obj.timestamp; if (!val) return null; let d = new Date(val); if (typeof val === 'number' && val < 10000000000) d = new Date(val*1000); return isNaN(d.getTime()) ? null : d; }
+    function formatTime(d) { const pad = n => n.toString().padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+    function escapeHtml(text) { return text ? text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''; }
+</script>
+
+</body>
+</html>
